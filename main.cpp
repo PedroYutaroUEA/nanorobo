@@ -23,7 +23,7 @@ private:
 public:
   Graph(int num_vertices) : num_vertices(num_vertices)
   {
-    adj = new list<pair<Vertex, Weight>>[num_vertices];
+    adj = new list<pair<Vertex, Weight>>[num_vertices + 1];
   }
 
   ~Graph() { delete[] adj; }
@@ -45,7 +45,6 @@ public:
   }
 };
 
-// Fila de prioridade implementada manualmente
 template <typename T>
 class PriorityQueue
 {
@@ -166,8 +165,7 @@ public:
 class UnionFind
 {
 private:
-  vector<Vertex> vertices;
-  vector<Vertex> parent;
+  vector<Vertex> vertices, parent;
 
 public:
   UnionFind(int num_vertices) : vertices(num_vertices), parent(num_vertices) {}
@@ -193,6 +191,7 @@ public:
   }
 };
 
+template <typename T>
 Weight MST_Kurskal(Graph &g)
 {
   int num_vertices = g.getNumVertices();
@@ -226,6 +225,7 @@ Weight MST_Kurskal(Graph &g)
   return total_weight;
 }
 
+template <typename T>
 void dijkstra(const Graph &g, Vertex root, vector<Dist> &distances, vector<Vertex> &previous)
 {
   int num_vertices = g.getNumVertices();
@@ -251,37 +251,62 @@ void dijkstra(const Graph &g, Vertex root, vector<Dist> &distances, vector<Verte
     }
   }
 }
-
-int main()
+class Brain
 {
-  Graph graph(9);
-  graph.addEdge(0, 1, 4.0);
-  graph.addEdge(0, 7, 8.0);
-  graph.addEdge(1, 2, 8.0);
-  graph.addEdge(1, 7, 11.0);
-  graph.addEdge(2, 3, 7.0);
-  graph.addEdge(2, 8, 2.0);
-  graph.addEdge(2, 5, 4.0);
-  graph.addEdge(3, 4, 9.0);
-  graph.addEdge(3, 5, 14.0);
-  graph.addEdge(4, 5, 10.0);
-  graph.addEdge(5, 6, 2.0);
-  graph.addEdge(6, 7, 1.0);
-  graph.addEdge(6, 8, 6.0);
-  graph.addEdge(7, 8, 7.0);
+private:
+  int num_vertices;
+  list<pair<Graph, Weight>> *adj;
 
-  vector<Dist> distances;
-  vector<Vertex> previous;
-  dijkstra(graph, 0, distances, previous);
 
-  cout << "Minimum Path Tree from Node 0:" << endl;
-  for (Vertex v = 0; v < graph.getNumVertices(); ++v)
+public:
+  Brain(int num_vertices) : num_vertices(num_vertices)
   {
-    cout << "Node " << v << " with distance " << distances[v];
-    if (previous[v] != INF)
-      cout << " (previous: " << previous[v] << ")";
-    cout << endl;
+    adj = new list<pair<Graph, Weight>>[num_vertices + 1];
   }
 
-  return 0;
+  ~Brain() { delete[] adj; }
+
+  void addEdge(Vertex u, Vertex v, Weight w)
+  {
+    adj[u].push_back(make_pair(v, w));
+    adj[v].push_back(make_pair(u, w));
+  }
+
+  const list<pair<Graph, Weight>> &getAdj(Vertex vertex) const
+  {
+    return adj[vertex];
+  }
+
+  int getNumBlocks() const
+  {
+    return num_vertices;
+  }
+};
+int main()
+{
+  int n_edges, n_vertices;
+  cin >> n_vertices >> n_edges;
+  Brain brain(n_vertices);
+  Vertex u, v;
+  Weight w;
+  for (int i = 1; i <= n_edges; i++) {
+    cin >> u >> v >> w;
+    brain.addEdge(u, v, w);
+  }
+  int root_block, exit_block;
+  cin >> root_block >> exit_block;
+
+  for (int i = 1; i <= brain.getNumBlocks(); i++) {
+    cin >> n_vertices >> n_edges;
+    int num_sickness;
+    cin >> num_sickness;
+    vector<int> sick_neuroms(num_sickness);
+    Graph g(n_vertices);
+    for (int j = 0; j < num_sickness; j++)
+      cin >> sick_neuroms[j];
+    for (int k = 1; k <= n_edges; k++) {
+      cin >> u >> v >> w;
+      g.addEdge(u, v, w);
+    }
+  }
 }
