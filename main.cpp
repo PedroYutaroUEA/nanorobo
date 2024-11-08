@@ -19,11 +19,14 @@ class Graph
 private:
   int num_vertices;
   list<pair<Vertex, Weight>> *adj;
+  vector<Vertex> sick_neuroms;
 
 public:
+  Graph() : num_vertices(0), adj(nullptr) {}
+
   Graph(int num_vertices) : num_vertices(num_vertices)
   {
-    adj = new list<pair<Vertex, Weight>>[num_vertices];
+    adj = new list<pair<Vertex, Weight>>[num_vertices + 1];
   }
 
   ~Graph() { delete[] adj; }
@@ -39,126 +42,106 @@ public:
     return adj[vertex];
   }
 
+  void setSickNeuroms(const vector<Vertex> &neuroms)
+  {
+    for (auto n : neuroms)
+      sick_neuroms.push_back(n);
+  }
+
   int getNumVertices() const
   {
     return num_vertices;
   }
 };
 
-// Fila de prioridade implementada manualmente
-template <typename T>
 class PriorityQueue
 {
 private:
-  vector<T> heap;
-
-  void heapifyUp(int index)
+  pair<Vertex, Weight> *heap;
+  int *pos, size;
+  Vertex parent(int i)
   {
-    while (index > 0 && heap[(index - 1) / 2].first > heap[index].first)
-    {
-      swap(heap[index], heap[(index - 1) / 2]);
-      index = (index - 1) / 2;
-    }
+    return i / 2;
   }
 
-  void heapifyDown(int index)
+  Vertex leftChild(int i)
   {
-    int size = heap.size();
-    int smallest = index;
-    int left = 2 * index + 1;
-    int right = 2 * index + 2;
-
-    if (left < size && heap[left].first < heap[smallest].first)
-      smallest = left;
-    if (right < size && heap[right].first < heap[smallest].first)
-      smallest = right;
-    if (smallest != index)
+    return 2 * i;
+  }
+  Vertex rightChild(int i)
+  {
+    return 2 * i + 1;
+  }
+  void heapifyUp(int i)
+  {
+    while (i > 1 && heap[i].second < heap[parent(i)].second)
     {
-      swap(heap[index], heap[smallest]);
-      heapifyDown(smallest);
+      swap(heap[i], heap[parent(i)]);
+      pos[heap[i].first] = i;
+      pos[heap[parent(i)].first] = parent(i);
+      i = parent(i);
+    }
+  }
+  void heapifyDown(int i)
+  {
+    while (i <= size / 2)
+    {
+      int smallest = i;
+
+      if (leftChild(i) < size && heap[leftChild(i)].second < heap[smallest].second)
+        smallest = leftChild(i);
+      if (rightChild(i) < size && heap[rightChild(i)].second < heap[smallest].second)
+        smallest = rightChild(i);
+      if (smallest != i)
+      {
+        swap(heap[i], heap[smallest]);
+        pos[heap[i].first] = i;
+        pos[heap[smallest].first] = smallest;
+        i = smallest;
+      }
+      else
+        break;
     }
   }
 
 public:
+  PriorityQueue(int num_vertices) : heap(new pair<Vertex, Weight>[num_vertices + 1]), pos(new int[num_vertices + 1]), size(0)
+  {
+    for (int i = 1; i <= num_vertices + 1; i++)
+      pos[i] = 0;
+  }
+  // ~PriorityQueue()
+  // {
+  //   delete[] heap;
+  //   delete[] pos;
+  // }
   bool isEmpty() const
   {
-    return heap.empty();
+    return size == 0;
   }
-
-  void insert(T node)
+  void insert(Vertex u, Weight w)
   {
-    heap.push_back(node);
-    heapifyUp(heap.size() - 1);
+    size += 1;
+    heap[size] = {u, w};
+    pos[u] = size;
+    heapifyUp(size);
   }
-
-  T extractMin()
+  pair<Vertex, Weight> extractMin()
   {
-    if (heap.empty())
-      throw runtime_error("Heap is empty");
-    T minNode = heap[0];
-    heap[0] = heap.back();
-    heap.pop_back();
-    if (!heap.empty())
-      heapifyDown(0);
-    return minNode;
+    pair<Vertex, Weight> min = heap[1];
+    heap[1] = heap[size];
+    pos[heap[1].first] = 1;
+    size -= 1;
+    heapifyDown(1);
+    return min;
   }
-
-  T extractMax()
+  void decreaseKey(Vertex v, Weight w)
   {
-    if (heap.empty())
-      throw runtime_error("Heap is empty");
-
-    // Encontrar o nó com o valor máximo
-    int maxIndex = 0;
-    for (int i = 1; i < heap.size(); ++i)
+    int i = pos[v];
+    if (i != 0 && heap[i].second > w)
     {
-      if (heap[i].first > heap[maxIndex].first)
-      {
-        maxIndex = i;
-      }
-    }
-    T maxNode = heap[maxIndex];
-    heap[maxIndex] = heap.back();
-    heap.pop_back();
-    if (!heap.empty())
-      heapifyDown(maxIndex);
-    return maxNode;
-  }
-
-  T getMin() const
-  {
-    if (heap.empty())
-      throw runtime_error("Heap is empty");
-    return heap[0];
-  }
-
-  T getMax() const
-  {
-    if (heap.empty())
-      throw runtime_error("Heap is empty");
-
-    // Encontrar o nó com o valor máximo
-    int maxIndex = 0;
-    for (int i = 1; i < heap.size(); ++i)
-    {
-      if (heap[i].first > heap[maxIndex].first)
-      {
-        maxIndex = i;
-      }
-    }
-    return heap[maxIndex];
-  }
-
-  void decreaseKey(Vertex v, Dist newDist)
-  {
-    for (size_t i = 0; i < heap.size(); i++)
-    {
-      if (heap[i].second == v)
-      {
-        heap[i].first = newDist;
-        heapifyUp(i);
-        return;
-      }
+      heap[i].second = w;
+      heapifyUp(i);
     }
   }
 };
@@ -166,8 +149,7 @@ public:
 class UnionFind
 {
 private:
-  vector<Vertex> vertices;
-  vector<Vertex> parent;
+  vector<Vertex> vertices, parent;
 
 public:
   UnionFind(int num_vertices) : vertices(num_vertices), parent(num_vertices) {}
@@ -193,6 +175,7 @@ public:
   }
 };
 
+template <typename T>
 Weight MST_Kurskal(Graph &g)
 {
   int num_vertices = g.getNumVertices();
@@ -226,62 +209,156 @@ Weight MST_Kurskal(Graph &g)
   return total_weight;
 }
 
-void dijkstra(const Graph &g, Vertex root, vector<Dist> &distances, vector<Vertex> &previous)
+class Brain
 {
-  int num_vertices = g.getNumVertices();
-  distances.assign(num_vertices, INF);
-  previous.assign(num_vertices, INF);
+private:
+  int num_vertices;
+  vector<Graph> blocks;
+  vector<vector<pair<Vertex, Weight>>> conections;
 
-  PriorityQueue<pair<Dist, Vertex>> pq;
-  distances[root] = 0;
-  pq.insert(make_pair(0, root));
-
-  while (!pq.isEmpty())
+public:
+  Brain(int num_vertices) : num_vertices(num_vertices)
   {
-    Vertex u = pq.extractMin().second;
+    blocks.resize(num_vertices + 1);
+    conections.resize(num_vertices + 1);
+  }
+  void addConection(Vertex u, Vertex v, Weight w)
+  {
+    conections[u].emplace_back(v, w);
+    conections[v].emplace_back(u, w);
+  }
+  void addBlock(Vertex id, Graph &g)
+  {
+    blocks[id] = g;
+  }
 
-    for (const auto &[v, weight] : g.getAdj(u))
+  vector<pair<Vertex, Weight>> getAdj(Vertex vertex) const
+  {
+    vector<pair<Vertex, Weight>> adj;
+    for (const auto &connection : conections[vertex])
     {
-      if (distances[v] > distances[u] + weight)
+      adj.push_back(connection);
+    }
+    return adj;
+  }
+
+  int getNumBlocks() const
+  {
+    return num_vertices;
+  }
+
+  void dijkstra(Vertex root, Vertex exit)
+  {
+    PriorityQueue pq(num_vertices);
+    Weight *distances = new Weight[num_vertices + 1];
+    Vertex *previous = new Vertex[num_vertices + 1];
+    for (int i = 1; i <= num_vertices; i++)
+    {
+      distances[i] = INF;
+      previous[i] = -1;
+    }
+    distances[root] = 0;
+    pq.insert(root, 0);
+
+    while (!pq.isEmpty())
+    {
+      Vertex u = pq.extractMin().first;
+
+      for (const auto &connection : getAdj(u))
       {
-        distances[v] = distances[u] + weight;
-        previous[v] = u;
-        pq.insert(make_pair(distances[v], v));
+        Vertex v = connection.first;
+        Weight weight = connection.second;
+        Weight oldDist = 0;
+
+        if (distances[u] + weight < distances[v])
+        {
+          oldDist = distances[v];
+          distances[v] = distances[u] + weight;
+          previous[v] = u;
+          if (oldDist != INF)
+            pq.decreaseKey(v, distances[v]);
+          else
+            pq.insert(v, distances[v]);
+        }
       }
     }
-  }
-}
 
+    cout << "Previous vertices in the shortest path:" << endl;
+    for (int i = 1; i <= num_vertices + 1; i++)
+    {
+      cout << "Previous vertex for " << i << ": " << previous[i] << endl;
+    }
+  }
+};
+// void dijkstra(const Brain &brain, Vertex root, Vertex exit, vector<Dist> &distances, vector<Vertex> &previous)
+// {
+//   int num_vertices = brain.getNumBlocks();
+//   distances.assign(num_vertices + 1, INF);
+//   previous.assign(num_vertices + 1, -1);
+
+//   PriorityQueue<pair<Dist, Vertex>> pq;
+//   distances[root] = 0;
+//   pq.insert(make_pair(0, root));
+
+//   while (!pq.isEmpty())
+//   {
+//     Vertex u = pq.extractMin().second;
+
+//     for (const auto &connection : brain.getAdj(u))
+//     {
+//       Vertex v = connection.first;
+//       Weight weight = connection.second;
+//       Weight oldDist = 0;
+//       if (distances[v] > distances[u] + weight)
+//       {
+//         oldDist = distances[v];
+//         distances[v] = distances[u] + weight;
+//         previous[v] = u;
+//         if (oldDist != INF)
+//           pq.decreaseKey(v, distances[v]);
+//         else
+//           pq.insert(make_pair(distances[v], v));
+//       }
+//     }
+//   }
+// }
 int main()
 {
-  Graph graph(9);
-  graph.addEdge(0, 1, 4.0);
-  graph.addEdge(0, 7, 8.0);
-  graph.addEdge(1, 2, 8.0);
-  graph.addEdge(1, 7, 11.0);
-  graph.addEdge(2, 3, 7.0);
-  graph.addEdge(2, 8, 2.0);
-  graph.addEdge(2, 5, 4.0);
-  graph.addEdge(3, 4, 9.0);
-  graph.addEdge(3, 5, 14.0);
-  graph.addEdge(4, 5, 10.0);
-  graph.addEdge(5, 6, 2.0);
-  graph.addEdge(6, 7, 1.0);
-  graph.addEdge(6, 8, 6.0);
-  graph.addEdge(7, 8, 7.0);
-
-  vector<Dist> distances;
-  vector<Vertex> previous;
-  dijkstra(graph, 0, distances, previous);
-
-  cout << "Minimum Path Tree from Node 0:" << endl;
-  for (Vertex v = 0; v < graph.getNumVertices(); ++v)
+  int n_conections, n_blocks;
+  cin >> n_blocks >> n_conections;
+  Brain brain(n_blocks);
+  Vertex u, v;
+  Weight w;
+  for (int i = 1; i <= n_conections; i++)
   {
-    cout << "Node " << v << " with distance " << distances[v];
-    if (previous[v] != INF)
-      cout << " (previous: " << previous[v] << ")";
-    cout << endl;
+    cin >> u >> v >> w;
+    brain.addConection(u, v, w);
   }
+  int root_block, exit_block;
+  cin >> root_block >> exit_block;
 
-  return 0;
+  int n_vertices, n_edges, num_sickness;
+  for (int i = 1; i <= brain.getNumBlocks(); i++)
+  {
+    cin >> n_vertices >> n_edges;
+    Graph g(n_vertices);
+    cin >> num_sickness;
+    if (num_sickness > 0)
+    {
+      vector<Vertex> sick_neuroms(num_sickness);
+      for (int j = 0; j < num_sickness; j++)
+        cin >> sick_neuroms[j];
+      g.setSickNeuroms(sick_neuroms);
+    }
+    for (int k = 1; k <= n_edges; k++)
+    {
+      cin >> u >> v >> w;
+      g.addEdge(u, v, w);
+    }
+    brain.addBlock(i, g);
+  }
+  // vector<Dist> distances;
+  // vector<Vertex> previous;
+  // dijkstra(brain, root_block, exit_block, distances, previous);
+  brain.dijkstra(root_block, exit_block);
 }
