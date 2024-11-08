@@ -19,8 +19,11 @@ class Graph
 private:
   int num_vertices;
   list<pair<Vertex, Weight>> *adj;
+  vector<Vertex> sick_neuroms;
 
 public:
+  Graph() : num_vertices(0), adj(nullptr) {}
+
   Graph(int num_vertices) : num_vertices(num_vertices)
   {
     adj = new list<pair<Vertex, Weight>>[num_vertices + 1];
@@ -37,6 +40,12 @@ public:
   const list<pair<Vertex, Weight>> &getAdj(Vertex vertex) const
   {
     return adj[vertex];
+  }
+
+  void setSickNeuroms(const vector<Vertex> &neuroms)
+  {
+    for (auto n : neuroms)
+      sick_neuroms.push_back(n);
   }
 
   int getNumVertices() const
@@ -225,10 +234,46 @@ Weight MST_Kurskal(Graph &g)
   return total_weight;
 }
 
-template <typename T>
-void dijkstra(const Graph &g, Vertex root, vector<Dist> &distances, vector<Vertex> &previous)
+class Brain
 {
-  int num_vertices = g.getNumVertices();
+private:
+  int num_vertices;
+  vector<Graph> blocks;
+  vector<vector<pair<Vertex, Weight>>> conections;
+
+public:
+  Brain(int num_vertices) : num_vertices(num_vertices)
+  {
+    blocks.resize(num_vertices + 1);
+    conections.resize(num_vertices + 1);
+  }
+  void addConection(Vertex u, Vertex v, Weight w)
+  {
+    conections[u].emplace_back(v, w);
+    conections[v].emplace_back(u, w);
+  }
+  void addBlock(Vertex id, Graph &g)
+  {
+    blocks[id] = g;
+  }
+
+  vector<pair<Vertex, Weight>> getAdj(Vertex vertex) const
+  {
+    vector<pair<Vertex, Weight>> adj;
+    for (const auto& connection : conections[vertex]) {
+      adj.push_back(connection);
+    }
+    return adj;
+  }
+
+  int getNumBlocks() const
+  {
+    return num_vertices;
+  }
+};
+void dijkstra(const Brain &brain, Vertex root, Vertex exit, vector<Dist> &distances, vector<Vertex> &previous)
+{
+  int num_vertices = brain.getNumBlocks();
   distances.assign(num_vertices, INF);
   previous.assign(num_vertices, INF);
 
@@ -239,9 +284,12 @@ void dijkstra(const Graph &g, Vertex root, vector<Dist> &distances, vector<Verte
   while (!pq.isEmpty())
   {
     Vertex u = pq.extractMin().second;
-
-    for (const auto &[v, weight] : g.getAdj(u))
+    if (u == exit)
+      return;
+    for (const auto& connection : brain.getAdj(u))
     {
+      Vertex v = connection.first;
+      Weight weight = connection.second;
       if (distances[v] > distances[u] + weight)
       {
         distances[v] = distances[u] + weight;
@@ -251,62 +299,42 @@ void dijkstra(const Graph &g, Vertex root, vector<Dist> &distances, vector<Verte
     }
   }
 }
-class Brain
-{
-private:
-  int num_vertices;
-  list<pair<Graph, Weight>> *adj;
-
-
-public:
-  Brain(int num_vertices) : num_vertices(num_vertices)
-  {
-    adj = new list<pair<Graph, Weight>>[num_vertices + 1];
-  }
-
-  ~Brain() { delete[] adj; }
-
-  void addEdge(Vertex u, Vertex v, Weight w)
-  {
-    adj[u].push_back(make_pair(v, w));
-    adj[v].push_back(make_pair(u, w));
-  }
-
-  const list<pair<Graph, Weight>> &getAdj(Vertex vertex) const
-  {
-    return adj[vertex];
-  }
-
-  int getNumBlocks() const
-  {
-    return num_vertices;
-  }
-};
 int main()
 {
-  int n_edges, n_vertices;
-  cin >> n_vertices >> n_edges;
-  Brain brain(n_vertices);
+  int n_conections, n_blocks;
+  cin >> n_blocks >> n_conections;
+  Brain brain(n_blocks);
   Vertex u, v;
   Weight w;
-  for (int i = 1; i <= n_edges; i++) {
+  for (int i = 1; i <= n_conections; i++) {
     cin >> u >> v >> w;
-    brain.addEdge(u, v, w);
+    brain.addConection(u, v, w);
   }
   int root_block, exit_block;
   cin >> root_block >> exit_block;
 
+  int n_vertices, n_edges, num_sickness;
   for (int i = 1; i <= brain.getNumBlocks(); i++) {
     cin >> n_vertices >> n_edges;
-    int num_sickness;
-    cin >> num_sickness;
-    vector<int> sick_neuroms(num_sickness);
     Graph g(n_vertices);
-    for (int j = 0; j < num_sickness; j++)
-      cin >> sick_neuroms[j];
+    cin >> num_sickness;
+    if (num_sickness > 0)
+    {
+      vector<Vertex> sick_neuroms(num_sickness);
+      for (int j = 0; j < num_sickness; j++)
+        cin >> sick_neuroms[j];
+      g.setSickNeuroms(sick_neuroms);
+    }
     for (int k = 1; k <= n_edges; k++) {
       cin >> u >> v >> w;
       g.addEdge(u, v, w);
     }
+    brain.addBlock(i, g);
   }
+  vector<Dist> distances;
+  vector<Vertex> previous;
+  dijkstra(brain, root_block, exit_block, distances, previous);
+
+  for (Vertex i = 0; i < previous.size(); i++)
+    cout << previous[i] << endl;
 }
